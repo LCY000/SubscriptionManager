@@ -6,14 +6,85 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5ADAAA1D2F9C2FA200EF7FE9 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5ADAAA1C2F9C2FA200EF7FE9 /* WidgetKit.framework */; };
+		5ADAAA1F2F9C2FA200EF7FE9 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5ADAAA1E2F9C2FA200EF7FE9 /* SwiftUI.framework */; };
+		5ADAAA2A2F9C2FA300EF7FE9 /* SubscriptionWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5ADAAA1A2F9C2FA200EF7FE9 /* SubscriptionWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5ADAAA282F9C2FA300EF7FE9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5AD32B212F71780E00259AD3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5ADAAA192F9C2FA200EF7FE9;
+			remoteInfo = SubscriptionWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5ADAAA2F2F9C2FA300EF7FE9 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5ADAAA2A2F9C2FA300EF7FE9 /* SubscriptionWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		5AD32B292F71780E00259AD3 /* Final Project 2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Final Project 2.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5ADAAA1A2F9C2FA200EF7FE9 /* SubscriptionWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SubscriptionWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5ADAAA1C2F9C2FA200EF7FE9 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = /System/Library/Frameworks/WidgetKit.framework; sourceTree = "<absolute>"; };
+		5ADAAA1E2F9C2FA200EF7FE9 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = /System/Library/Frameworks/SwiftUI.framework; sourceTree = "<absolute>"; };
+		5ADAAA352F9C315500EF7FE9 /* SubscriptionWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SubscriptionWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5ADAAA2B2F9C2FA300EF7FE9 /* Exceptions for "SubscriptionWidget" folder in "SubscriptionWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 5ADAAA192F9C2FA200EF7FE9 /* SubscriptionWidgetExtension */;
+		};
+		5ADAAA312F9C308F00EF7FE9 /* Exceptions for "Final Project 2" folder in "Final Project 2" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Widgets/SubscriptionWidget.swift,
+			);
+			target = 5AD32B282F71780E00259AD3 /* Final Project 2 */;
+		};
+		5ADAAA322F9C308F00EF7FE9 /* Exceptions for "Final Project 2" folder in "SubscriptionWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Views/Components/ColorExtensions.swift,
+				Widgets/SubscriptionWidget.swift,
+			);
+			target = 5ADAAA192F9C2FA200EF7FE9 /* SubscriptionWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5AD32B2B2F71780E00259AD3 /* Final Project 2 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5ADAAA312F9C308F00EF7FE9 /* Exceptions for "Final Project 2" folder in "Final Project 2" target */,
+				5ADAAA322F9C308F00EF7FE9 /* Exceptions for "Final Project 2" folder in "SubscriptionWidgetExtension" target */,
+			);
 			path = "Final Project 2";
+			sourceTree = "<group>";
+		};
+		5ADAAA202F9C2FA200EF7FE9 /* SubscriptionWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5ADAAA2B2F9C2FA300EF7FE9 /* Exceptions for "SubscriptionWidget" folder in "SubscriptionWidgetExtension" target */,
+			);
+			path = SubscriptionWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +97,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5ADAAA172F9C2FA200EF7FE9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5ADAAA1F2F9C2FA200EF7FE9 /* SwiftUI.framework in Frameworks */,
+				5ADAAA1D2F9C2FA200EF7FE9 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		5AD32B202F71780E00259AD3 = {
 			isa = PBXGroup;
 			children = (
+				5ADAAA352F9C315500EF7FE9 /* SubscriptionWidgetExtension.entitlements */,
 				5AD32B2B2F71780E00259AD3 /* Final Project 2 */,
+				5ADAAA202F9C2FA200EF7FE9 /* SubscriptionWidget */,
+				5ADAAA1B2F9C2FA200EF7FE9 /* Frameworks */,
 				5AD32B2A2F71780E00259AD3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +124,18 @@
 			isa = PBXGroup;
 			children = (
 				5AD32B292F71780E00259AD3 /* Final Project 2.app */,
+				5ADAAA1A2F9C2FA200EF7FE9 /* SubscriptionWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5ADAAA1B2F9C2FA200EF7FE9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5ADAAA1C2F9C2FA200EF7FE9 /* WidgetKit.framework */,
+				5ADAAA1E2F9C2FA200EF7FE9 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +148,12 @@
 				5AD32B252F71780E00259AD3 /* Sources */,
 				5AD32B262F71780E00259AD3 /* Frameworks */,
 				5AD32B272F71780E00259AD3 /* Resources */,
+				5ADAAA2F2F9C2FA300EF7FE9 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5ADAAA292F9C2FA300EF7FE9 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				5AD32B2B2F71780E00259AD3 /* Final Project 2 */,
@@ -70,6 +165,28 @@
 			productReference = 5AD32B292F71780E00259AD3 /* Final Project 2.app */;
 			productType = "com.apple.product-type.application";
 		};
+		5ADAAA192F9C2FA200EF7FE9 /* SubscriptionWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5ADAAA2C2F9C2FA300EF7FE9 /* Build configuration list for PBXNativeTarget "SubscriptionWidgetExtension" */;
+			buildPhases = (
+				5ADAAA162F9C2FA200EF7FE9 /* Sources */,
+				5ADAAA172F9C2FA200EF7FE9 /* Frameworks */,
+				5ADAAA182F9C2FA200EF7FE9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5ADAAA202F9C2FA200EF7FE9 /* SubscriptionWidget */,
+			);
+			name = SubscriptionWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = SubscriptionWidgetExtension;
+			productReference = 5ADAAA1A2F9C2FA200EF7FE9 /* SubscriptionWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -77,11 +194,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					5AD32B282F71780E00259AD3 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					5ADAAA192F9C2FA200EF7FE9 = {
+						CreatedOnToolsVersion = 26.4.1;
 					};
 				};
 			};
@@ -100,12 +220,20 @@
 			projectRoot = "";
 			targets = (
 				5AD32B282F71780E00259AD3 /* Final Project 2 */,
+				5ADAAA192F9C2FA200EF7FE9 /* SubscriptionWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		5AD32B272F71780E00259AD3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5ADAAA182F9C2FA200EF7FE9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +250,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5ADAAA162F9C2FA200EF7FE9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5ADAAA292F9C2FA300EF7FE9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5ADAAA192F9C2FA200EF7FE9 /* SubscriptionWidgetExtension */;
+			targetProxy = 5ADAAA282F9C2FA300EF7FE9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		5AD32B322F71780F00259AD3 /* Debug */ = {
@@ -184,6 +327,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -241,6 +385,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -251,11 +396,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Final Project 2/Final Project 2.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X2AWFYCC2H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "解鎖訂閱管家以存取您的訂閱資料";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -283,11 +430,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Final Project 2/Final Project 2.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X2AWFYCC2H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "解鎖訂閱管家以存取您的訂閱資料";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -310,6 +459,96 @@
 			};
 			name = Release;
 		};
+		5ADAAA2D2F9C2FA300EF7FE9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SubscriptionWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = X2AWFYCC2H;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SubscriptionWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SubscriptionWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "work.Final-Project-2.SubscriptionWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		5ADAAA2E2F9C2FA300EF7FE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SubscriptionWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = X2AWFYCC2H;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SubscriptionWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SubscriptionWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "work.Final-Project-2.SubscriptionWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -327,6 +566,15 @@
 			buildConfigurations = (
 				5AD32B352F71780F00259AD3 /* Debug */,
 				5AD32B362F71780F00259AD3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5ADAAA2C2F9C2FA300EF7FE9 /* Build configuration list for PBXNativeTarget "SubscriptionWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5ADAAA2D2F9C2FA300EF7FE9 /* Debug */,
+				5ADAAA2E2F9C2FA300EF7FE9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
