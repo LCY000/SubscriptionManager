@@ -11,6 +11,7 @@ struct SubscriptionDetailView: View {
     @State private var showingCancelConfirmation = false
 
     private let calculator = BillingCycleCalculator()
+    private let shareCalculator = SubscriptionShareCalculator()
 
     private var nextPaymentDate: Date {
         calculator.nextPaymentDate(
@@ -18,6 +19,9 @@ struct SubscriptionDetailView: View {
             billingCycle: subscription.billingCycle
         )
     }
+
+    private var myAmount: Decimal { shareCalculator.myAmount(for: subscription) }
+    private var hasSharedSplit: Bool { subscription.isShared && myAmount != subscription.amount }
 
     var body: some View {
         ScrollView {
@@ -36,6 +40,13 @@ struct SubscriptionDetailView: View {
         .navigationTitle(subscription.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let url = try? SubscriptionShareEncoder.encode(subscription) {
+                    ShareLink(item: url, subject: Text("訂閱方案分享"), message: Text("用訂閱管家匯入「\(subscription.name)」")) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("編輯", action: { showingEditSheet = true })
             }
@@ -66,13 +77,29 @@ struct SubscriptionDetailView: View {
             Text(subscription.name)
                 .font(.title2.bold())
 
-            Label(subscription.status.displayName, systemImage: subscription.status.iconName)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(subscription.status.accentColor)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .background(subscription.status.accentColor.opacity(0.15))
-                .clipShape(.capsule)
+            HStack(spacing: 8) {
+                Label(subscription.status.displayName, systemImage: subscription.status.iconName)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(subscription.status.accentColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(subscription.status.accentColor.opacity(0.15))
+                    .clipShape(.capsule)
+
+                if subscription.isShared {
+                    let isMine = subscription.isOrganizer
+                    Label(
+                        isMine ? "我主辦" : "朋友主辦",
+                        systemImage: isMine ? "person.2.fill" : "person.fill.checkmark"
+                    )
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(isMine ? Color.blue : Color.purple)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background((isMine ? Color.blue : Color.purple).opacity(0.15))
+                    .clipShape(.capsule)
+                }
+            }
 
             if let category = subscription.category {
                 Label(category.name, systemImage: category.iconName)
@@ -92,9 +119,16 @@ struct SubscriptionDetailView: View {
     private var detailsCard: some View {
         VStack(spacing: 0) {
             DetailRow(
-                label: "金額",
+                label: "方案金額",
                 value: subscription.amount.formatted(.currency(code: subscription.currency))
             )
+            if hasSharedSplit {
+                Divider().padding(.leading)
+                DetailRow(
+                    label: "我每次付",
+                    value: myAmount.formatted(.currency(code: subscription.currency))
+                )
+            }
             Divider().padding(.leading)
             DetailRow(label: "付款週期", value: subscription.billingCycle.displayName)
             Divider().padding(.leading)
@@ -116,10 +150,6 @@ struct SubscriptionDetailView: View {
             }
             Divider().padding(.leading)
             DetailRow(label: "提前提醒", value: "扣款前 \(subscription.reminderDaysBefore) 天")
-            if subscription.isShared {
-                Divider().padding(.leading)
-                DetailRow(label: "方案類型", value: "家庭/共享方案")
-            }
         }
         .background(.regularMaterial)
         .clipShape(.rect(cornerRadius: 16))
@@ -239,7 +269,7 @@ struct SubscriptionDetailView: View {
     }
 
     @ViewBuilder private var sharedPlanCard: some View {
-        if subscription.isShared {
+        if subscription.isShared && subscription.isOrganizer {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("共享方案成員")

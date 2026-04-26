@@ -24,13 +24,14 @@ struct WidgetSummaryData: Codable {
 struct WidgetRefresher {
     private static let appGroupID = "group.work.Final-Project-2"
     private static let calc = BillingCycleCalculator()
+    private static let shareCalc = SubscriptionShareCalculator()
 
     static func refresh(subscriptions: [Subscription]) {
         let primaryCurrency = UserDefaults.standard.string(forKey: "primaryCurrency") ?? "TWD"
         let active = subscriptions.filter { $0.status == .active || $0.status == .trial }
 
         let monthlyTotal = active.reduce(Decimal.zero) { sum, sub in
-            let monthly = calc.monthlyEquivalent(amount: sub.amount, cycle: sub.billingCycle)
+            let monthly = shareCalc.myMonthlyShare(for: sub)
             return sum + CurrencyConverter.convert(monthly, from: sub.currency, to: primaryCurrency)
         }
 
@@ -43,7 +44,7 @@ struct WidgetRefresher {
             .map { sub in
                 WidgetSubscriptionData(
                     name: sub.name,
-                    amount: NSDecimalNumber(decimal: sub.amount).doubleValue,
+                    amount: NSDecimalNumber(decimal: shareCalc.myAmount(for: sub)).doubleValue,
                     currency: sub.currency,
                     brandColorHex: sub.brandColorHex,
                     daysUntilPayment: calc.daysUntilNextPayment(

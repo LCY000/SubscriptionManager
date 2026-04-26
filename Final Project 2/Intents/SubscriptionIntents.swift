@@ -18,17 +18,17 @@ struct MonthlySpendIntent: AppIntent {
         let subscriptions = try context.fetch(FetchDescriptor<Subscription>())
         let currency = UserDefaults.standard.string(forKey: "primaryCurrency") ?? "TWD"
 
-        let calc = BillingCycleCalculator()
+        let shareCalc = SubscriptionShareCalculator()
         let total = subscriptions
             .filter { $0.status == .active || $0.status == .trial }
             .reduce(Decimal.zero) { sum, sub in
-                let monthly = calc.monthlyEquivalent(amount: sub.amount, cycle: sub.billingCycle)
+                let monthly = shareCalc.myMonthlyShare(for: sub)
                 let converted = CurrencyConverter.convert(monthly, from: sub.currency, to: currency)
                 return sum + converted
             }
 
         let formatted = total.formatted(.currency(code: currency).precision(.fractionLength(0)))
-        return .result(value: formatted, dialog: "本月訂閱預估支出為 \(formatted)")
+        return .result(value: formatted, dialog: "你這個月訂閱預估支出為 \(formatted)")
     }
 }
 
@@ -56,10 +56,12 @@ struct NextPaymentIntent: AppIntent {
             return .result(value: "無", dialog: "目前沒有啟用中的訂閱")
         }
 
+        let shareCalc = SubscriptionShareCalculator()
         let days = calc.daysUntilNextPayment(firstPaymentDate: next.firstPaymentDate, billingCycle: next.billingCycle)
-        let amount = next.amount.formatted(.currency(code: next.currency))
+        let myAmount = shareCalc.myAmount(for: next)
+        let amount = myAmount.formatted(.currency(code: next.currency))
         let daysText = days == 0 ? "今天" : "\(days) 天後"
-        let result = "\(next.name)，\(amount)，\(daysText)"
+        let result = "\(next.name)，你付 \(amount)，\(daysText)"
         return .result(value: result, dialog: "下一筆訂閱扣款是 \(result)")
     }
 }

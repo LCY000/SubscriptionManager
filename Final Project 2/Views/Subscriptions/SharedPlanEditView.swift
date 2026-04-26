@@ -36,67 +36,82 @@ struct SharedPlanEditView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("方案設定") {
-                    Stepper("共 \(totalMembers) 人（包含自己）", value: $totalMembers, in: 2...20)
+            if !subscription.isOrganizer {
+                ContentUnavailableView {
+                    Label("此訂閱由朋友主辦", systemImage: "person.fill.checkmark")
+                } description: {
+                    Text("無法在這個視角設定共享成員，請聯繫主辦人")
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("關閉", action: dismiss.callAsFunction)
+                    }
+                }
+            } else {
+                form
+            }
+        }
+    }
 
-                    Toggle("平均分攤", isOn: $useEqualSplit)
+    private var form: some View {
+        Form {
+            Section("方案設定") {
+                Stepper("共 \(totalMembers) 人（包含自己）", value: $totalMembers, in: 2...20)
+                Toggle("平均分攤", isOn: $useEqualSplit)
+                if useEqualSplit {
+                    LabeledContent("每人費用") {
+                        Text(perMemberAmount.formatted(.currency(code: subscription.currency)))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
 
-                    if useEqualSplit {
-                        LabeledContent("每人費用") {
+            Section {
+                ForEach(allFriends) { friend in
+                    HStack {
+                        Image(systemName: selectedFriendIds.contains(friend.id)
+                              ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedFriendIds.contains(friend.id) ? Color.accentColor : Color.secondary)
+                            .accessibilityHidden(true)
+
+                        Text(friend.name)
+
+                        Spacer()
+
+                        if !useEqualSplit && selectedFriendIds.contains(friend.id) {
+                            TextField("金額", text: Binding(
+                                get: { customAmounts[friend.id] ?? "" },
+                                set: { customAmounts[friend.id] = $0 }
+                            ))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                        } else if useEqualSplit && selectedFriendIds.contains(friend.id) {
                             Text(perMemberAmount.formatted(.currency(code: subscription.currency)))
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { toggleFriend(friend) }
+                    .accessibilityAddTraits(.isButton)
                 }
-
-                Section {
-                    ForEach(allFriends) { friend in
-                        HStack {
-                            Image(systemName: selectedFriendIds.contains(friend.id)
-                                  ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selectedFriendIds.contains(friend.id) ? Color.accentColor : Color.secondary)
-                                .accessibilityHidden(true)
-
-                            Text(friend.name)
-
-                            Spacer()
-
-                            if !useEqualSplit && selectedFriendIds.contains(friend.id) {
-                                TextField("金額", text: Binding(
-                                    get: { customAmounts[friend.id] ?? "" },
-                                    set: { customAmounts[friend.id] = $0 }
-                                ))
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 80)
-                            } else if useEqualSplit && selectedFriendIds.contains(friend.id) {
-                                Text(perMemberAmount.formatted(.currency(code: subscription.currency)))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { toggleFriend(friend) }
-                        .accessibilityAddTraits(.isButton)
-                    }
-                } header: {
-                    Text("選擇成員")
-                } footer: {
-                    Text("勾選要加入這個方案的朋友")
-                }
+            } header: {
+                Text("選擇成員")
+            } footer: {
+                Text("勾選要加入這個方案的朋友")
             }
-            .navigationTitle("共享方案設定")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("取消", action: dismiss.callAsFunction)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("儲存", action: save)
-                        .fontWeight(.semibold)
-                        .disabled(selectedFriendIds.isEmpty)
-                }
+        }
+        .navigationTitle("共享方案設定")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("取消", action: dismiss.callAsFunction)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("儲存", action: save)
+                    .fontWeight(.semibold)
+                    .disabled(selectedFriendIds.isEmpty)
             }
         }
     }

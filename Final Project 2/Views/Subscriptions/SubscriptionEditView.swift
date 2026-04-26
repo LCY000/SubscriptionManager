@@ -19,7 +19,8 @@ struct SubscriptionEditView: View {
     @State private var trialEndDate: Date = Calendar.current.date(byAdding: .day, value: 14, to: Date()) ?? Date()
     @State private var reminderDaysBefore: Int = 1
     @State private var notes: String = ""
-    @State private var isShared: Bool = false
+    @State private var shareMode: ShareMode = .solo
+    @State private var myShareString: String = ""
     @State private var brandColorHex: String = "#007AFF"
     @State private var brandColor: Color = Color(hex: "#007AFF")
     @State private var selectedCategory: SubscriptionCategory?
@@ -55,7 +56,14 @@ struct SubscriptionEditView: View {
         _trialEndDate = State(initialValue: sub.trialEndDate ?? (Calendar.current.date(byAdding: .day, value: 14, to: Date()) ?? Date()))
         _reminderDaysBefore = State(initialValue: sub.reminderDaysBefore)
         _notes = State(initialValue: sub.notes)
-        _isShared = State(initialValue: sub.isShared)
+        let mode: ShareMode
+        if !sub.isShared { mode = .solo }
+        else if sub.isOrganizer { mode = .organizer }
+        else { mode = .member }
+        _shareMode = State(initialValue: mode)
+        if let override = sub.myShareOverride {
+            _myShareString = State(initialValue: "\(override)")
+        }
         _brandColorHex = State(initialValue: sub.brandColorHex)
         _brandColor = State(initialValue: Color(hex: sub.brandColorHex))
         _selectedCategory = State(initialValue: sub.category)
@@ -150,8 +158,29 @@ struct SubscriptionEditView: View {
                     )
                 }
 
+                Section {
+                    Picker("分帳模式", selection: $shareMode) {
+                        ForEach(ShareMode.allCases, id: \.self) { m in
+                            Text(m.displayName).tag(m)
+                        }
+                    }
+
+                    if shareMode == .member {
+                        HStack {
+                            TextField("我每次付", text: $myShareString)
+                                .keyboardType(.decimalPad)
+                            Text(currency)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("分帳")
+                } footer: {
+                    Text(shareModeFooter)
+                        .font(.caption)
+                }
+
                 Section("其他") {
-                    Toggle("家庭/共享方案", isOn: $isShared)
                     TextField("備註", text: $notes, axis: .vertical)
                         .lineLimit(3...)
                 }
@@ -195,9 +224,20 @@ struct SubscriptionEditView: View {
         selectedCategory = categories.first { $0.name == preset.categoryName }
     }
 
+    private var shareModeFooter: String {
+        switch shareMode {
+        case .solo:      "只記錄你個人的訂閱"
+        case .organizer: "你是主辦人，可在詳情頁設定共用人數與向朋友收款"
+        case .member:    "由朋友主辦，你只記錄自己每次扣款付的份額"
+        }
+    }
+
     private func save() {
         let amount = Decimal(string: amountString) ?? .zero
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let isShared = shareMode != .solo
+        let isOrganizer = shareMode != .member
+        let myShareOverride: Decimal? = shareMode == .member ? Decimal(string: myShareString) : nil
         let savedSub: Subscription
 
         if let sub = subscription {
@@ -220,9 +260,15 @@ struct SubscriptionEditView: View {
             sub.reminderDaysBefore = reminderDaysBefore
             sub.notes = notes
             sub.isShared = isShared
+            sub.isOrganizer = isOrganizer
+            sub.myShareOverride = myShareOverride
             sub.brandColorHex = brandColorHex
             sub.category = selectedCategory
             if let url = iconAssetName { sub.iconAssetName = url }
+            // 切到「朋友主辦」時清掉舊的 SharedPlan
+            if shareMode == .member, let oldPlan = sub.sharedPlan {
+                modelContext.delete(oldPlan)
+            }
             savedSub = sub
         } else {
             let newSub = Subscription(
@@ -238,6 +284,8 @@ struct SubscriptionEditView: View {
                 notes: notes,
                 reminderDaysBefore: reminderDaysBefore,
                 isShared: isShared,
+                isOrganizer: isOrganizer,
+                myShareOverride: myShareOverride,
                 category: selectedCategory
             )
             modelContext.insert(newSub)
@@ -246,6 +294,20 @@ struct SubscriptionEditView: View {
 
         Task { await ReminderScheduler.schedule(for: savedSub) }
         dismiss()
+    }
+}
+
+enum ShareMode: String, CaseIterable, Hashable {
+    case solo
+    case organizer
+    case member
+
+    var displayName: String {
+        switch self {
+        case .solo:      "一般"
+        case .organizer: "我主辦分帳"
+        case .member:    "朋友主辦我分擔"
+        }
     }
 }
 

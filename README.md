@@ -8,6 +8,8 @@ iOS 課程期末專案。一款協助使用者集中管理數位訂閱服務的 
 - 常忘記扣款日、試用到期日，導致被意外續約
 - 缺少固定支出統計，無法掌握每月/每年訂閱總花費
 - **家庭方案分帳混亂**：有人預付幾個月、有人還沒給、要一個個私訊催款
+- **分帳金額誤算**：只是 Spotify 家庭方案的成員，App 卻把整筆 390 計入月支出
+- **朋友主辦無法只記錄自己份額**：無法以「成員視角」建立他人主辦的共享訂閱
 
 ## 主要功能
 
@@ -39,9 +41,21 @@ iOS 課程期末專案。一款協助使用者集中管理數位訂閱服務的 
 - **App Intents / Siri Shortcuts**：「查詢本月訂閱花費」「下一筆扣款是什麼」
 - **iCloud 同步**（SwiftData + CloudKit）：設定頁開關，重啟後生效
 - **Face ID / Touch ID 應用程式鎖**（LocalAuthentication）：進背景即鎖，返回驗證
-- **CSV 匯出**（ShareLink）：含月均換算、下次扣款日
+- **CSV 匯出**（ShareLink）：含月均換算、下次扣款日、我的份額與角色欄位
 - **價格變動歷史**：編輯金額時自動記錄，詳情頁完整歷程
 - **多幣別支援**（TWD / USD / JPY / EUR）：首頁與統計統一換算成主幣別，匯率可自訂
+
+### v1.1 — 分帳角色 & 方案分享
+- **分帳角色系統**：訂閱可設定為「一般」/「我主辦分帳」/「朋友主辦我分擔」三種角色
+  - 朋友主辦時可自填每次應付金額（`myShareOverride`），不再只能從主辦人視角記錄
+- **「我的份額」精準計算**（`SubscriptionShareCalculator`）：
+  - 首頁、Widget、Siri 的月支出改為「我實際付的金額」而非方案總額
+  - 統計頁新增 **我的支出 / 方案總額** 切換（Segmented Picker）
+  - 訂閱 Row 顯示「我每月付 X」，分帳時副標顯示方案總額
+- **訂閱方案深層連結分享**（URL Scheme `subhub://`）：
+  - 詳情頁工具列 ShareLink 按鈕，透過 LINE / iMessage 分享
+  - 收到連結後開啟 **ImportSubscriptionView**，預覽方案資訊並可調整份額後匯入
+  - 格式：`subhub://import?v=1&data=<base64url-json>`，版本化設計方便升級
 
 ## 技術架構
 
@@ -66,6 +80,7 @@ iOS 課程期末專案。一款協助使用者集中管理數位訂閱服務的 
 - **iOS Deployment Target:** 26.2
 - **Swift:** 5.0（啟用 `SWIFT_APPROACHABLE_CONCURRENCY`、`SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY`）
 - **Code Signing:** Automatic，Team `X2AWFYCC2H`
+- **URL Scheme:** `subhub://`（需在 Xcode → Target → Info → URL Types 手動登錄）
 
 ## 建置與執行
 
@@ -74,7 +89,7 @@ iOS 課程期末專案。一款協助使用者集中管理數位訂閱服務的 
 xcodebuild -scheme "Final Project 2" -configuration Debug \
   -destination "platform=iOS Simulator,name=iPhone 17" build
 
-# 執行單元測試
+# 執行單元測試（需先在 Xcode 建立 Unit Testing Bundle target，見 Tests/README.md）
 xcodebuild -scheme "Final Project 2" -configuration Debug \
   -destination "platform=iOS Simulator,name=iPhone 17" test
 ```
@@ -85,39 +100,46 @@ xcodebuild -scheme "Final Project 2" -configuration Debug \
 
 ```
 Final Project 2/
-├── Final_Project_2App.swift     # @main，ModelContainer 注入，Face ID 鎖
+├── Final_Project_2App.swift     # @main，ModelContainer 注入，Face ID 鎖，深層連結路由
 ├── ContentView.swift            # TabView 五分頁 + Onboarding
-├── Models/                      # SwiftData @Model
-│   ├── Subscription.swift
+├── Models/
+│   ├── Subscription.swift              # @Model，含 isOrganizer / myShareOverride（v1.1）
 │   ├── SubscriptionCategory.swift
 │   ├── Friend.swift / SharedPlan.swift / Contribution.swift
 │   ├── PaymentRecord.swift / PriceHistoryEntry.swift / SettlementRecord.swift
+│   ├── SharedSubscriptionPayload.swift # 跨 App 傳輸 DTO（v1.1）
 │   └── Enums.swift
 ├── Services/
-│   ├── BillingCycleCalculator.swift   # 週期計算（含月底/閏年）
-│   ├── ContributionSettler.swift      # 分帳結算邏輯
-│   ├── ReminderScheduler.swift        # 本地通知排程
-│   ├── ServicePresetLibrary.swift     # 23 個內建服務 + 7 個預設分類
-│   ├── CurrencyConverter.swift        # 多幣別換算
-│   ├── ExportService.swift            # CSV 匯出
-│   └── WidgetRefresher.swift          # Widget 資料同步
+│   ├── BillingCycleCalculator.swift        # 週期計算（含月底/閏年）
+│   ├── ContributionSettler.swift           # 分帳結算邏輯
+│   ├── SubscriptionShareCalculator.swift   # 我的份額計算（v1.1）
+│   ├── SubscriptionShareEncoder.swift      # 深層連結編碼（v1.1）
+│   ├── SubscriptionShareDecoder.swift      # 深層連結解碼（v1.1）
+│   ├── ReminderScheduler.swift             # 本地通知排程
+│   ├── ServicePresetLibrary.swift          # 23 個內建服務 + 7 個預設分類
+│   ├── CurrencyConverter.swift             # 多幣別換算
+│   ├── ExportService.swift                 # CSV 匯出（含我的份額與角色欄位）
+│   └── WidgetRefresher.swift               # Widget 資料同步
 ├── Views/
-│   ├── Home/                    # 首頁 Dashboard
-│   ├── Subscriptions/           # 訂閱列表、詳情、編輯、服務庫
+│   ├── Home/                    # 首頁 Dashboard（月支出改用我的份額）
+│   ├── Subscriptions/           # 訂閱列表、詳情（分角色徽章）、編輯（分帳角色 Picker）
+│   │   └── ImportSubscriptionView.swift    # 深層連結匯入畫面（v1.1）
 │   ├── Friends/                 # 分帳、朋友管理、催款
-│   ├── Statistics/              # Swift Charts 統計頁
+│   ├── Statistics/              # Swift Charts 統計頁（我的支出/方案總額切換）
 │   ├── Settings/                # 設定頁、分類管理、App 鎖畫面
 │   ├── Onboarding/              # 首次啟動引導
 │   └── Components/              # 共用元件
 ├── Intents/
-│   └── SubscriptionIntents.swift    # App Intents + Siri Shortcuts
+│   └── SubscriptionIntents.swift    # App Intents + Siri Shortcuts（我的份額）
 ├── Widgets/
 │   └── SubscriptionWidget.swift     # Widget Extension（需獨立 target）
 └── Assets.xcassets              # 服務 Logo + 品牌色
 
 Tests/
-├── BillingCycleCalculatorTests.swift   # 13 筆測試（月底、閏年、自訂天數）
-└── ContributionSettlerTests.swift      # 12 筆測試（預付抵扣邏輯）
+├── BillingCycleCalculatorTests.swift       # 13 筆測試（月底、閏年、自訂天數）
+├── ContributionSettlerTests.swift          # 12 筆測試（預付抵扣邏輯）
+├── SubscriptionShareCalculatorTests.swift  # 9 筆測試（我的份額各角色情境）
+└── SubscriptionShareCodecTests.swift       # 5 筆測試（深層連結 encode/decode）
 ```
 
 ## 開發狀態
@@ -128,3 +150,4 @@ Tests/
 | Phase 2 — 分帳旗艦 | ✅ 完成 | 2026-04-21 |
 | Phase 3 — 視覺化 | ✅ 完成 | 2026-04-22 |
 | Phase 4 — 進階整合 | ✅ 完成 | 2026-04-25 |
+| v1.1 — 分帳角色 & 方案分享 | ✅ 完成 | 2026-04-27 |

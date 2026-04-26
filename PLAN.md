@@ -337,6 +337,52 @@ Final Project 2/
 | Phase 2 — 分帳旗艦 | ✅ 完成 | 2026-04-21 | BUILD SUCCEEDED |
 | Phase 3 — 視覺化 | ✅ 完成 | 2026-04-22 | 全部 8 項完成，BUILD SUCCEEDED |
 | Phase 4 — 進階整合 | ✅ 完成 | 2026-04-25 | 7 項全部完成，BUILD SUCCEEDED |
+| 擴充 — 三大痛點修正 | ✅ 完成 | 2026-04-26 | 我的份額模型、朋友主辦流程、深層連結分享，BUILD SUCCEEDED |
+
+### 擴充修正 — 2026-04-26
+
+**痛點修正範圍**
+
+- 痛點 1：**朋友主辦的訂閱可只記錄自己份額** — `Subscription` 加 `isOrganizer: Bool = true` 與 `myShareOverride: Decimal?`（lightweight migration）
+- 痛點 2：**深層連結分享方案** — `subhub://import?v=1&data=<base64-json>`，朋友點連結直接喚起匯入流程
+- 痛點 3：**月度/統計顯示淨額** — 全部金額計算改用 `myMonthlyShare`，不再把朋友該分擔的部分算進「我的支出」
+
+**新增檔案**
+
+- `Services/SubscriptionShareCalculator.swift` — `myAmount` / `myMonthlyShare` / `myYearlyShare`
+- `Models/SharedSubscriptionPayload.swift` — 跨 App 傳輸 DTO（`Codable struct`，非 SwiftData）
+- `Services/SubscriptionShareEncoder.swift` — Subscription → URL，含 base64URL 編碼
+- `Services/SubscriptionShareDecoder.swift` — URL → Payload，含版本驗證
+- `Views/Subscriptions/ImportSubscriptionView.swift` — 接收方匯入預覽 + `ImportRouter @Observable`
+- `Tests/SubscriptionShareCalculatorTests.swift` — 9 個測試，覆蓋一般 / 朋友主辦 / 我主辦 / 季付 / override 邊界
+- `Tests/SubscriptionShareCodecTests.swift` — 5 個測試，覆蓋 round-trip / URL 結構 / 版本驗證 / 年付
+
+**修改檔案**
+
+- `Models/Subscription.swift` — 加 `isOrganizer`、`myShareOverride`
+- `Views/Home/HomeView.swift` — `monthlyTotal` 改用 myShare
+- `Views/Statistics/StatisticsView.swift` — 加 `viewMode` segmented picker（我的支出 / 方案總額），全部圖表跟著切換
+- `Services/WidgetRefresher.swift` — Widget 顯示我的份額
+- `Intents/SubscriptionIntents.swift` — Siri 回答我的份額
+- `Services/ExportService.swift` — CSV 加「我的份額」「角色」兩欄
+- `Views/Subscriptions/SubscriptionEditView.swift` — 加 `ShareMode` picker（一般 / 我主辦分帳 / 朋友主辦我分擔）
+- `Views/Subscriptions/SubscriptionDetailView.swift` — 加角色徽章、`我每次付` row、ShareLink toolbar
+- `Views/Subscriptions/SharedPlanEditView.swift` — 朋友主辦時 guard 進入
+- `Views/Components/SubscriptionRowView.swift` — 顯示我的份額為主，副標小字方案全額
+- `Views/Home/UpcomingPaymentRow.swift` — 同上
+- `Final Project 2/Final_Project_2App.swift` — `.onOpenURL` + ImportRouter sheet/alert
+
+**手動 Xcode 設定（需使用者操作）**
+
+要讓 `subhub://` URL 在 LINE / iMessage 點擊後喚起 App：
+1. Xcode → `Final Project 2` target → `Info` tab → `URL Types` 點 `+`
+2. URL Schemes 填 `subhub`
+3. Identifier 填 `work.Final-Project-2.share`
+
+未設定時：分享連結仍可產生（`SubscriptionShareEncoder.encode`），但點擊不會自動匯入，需使用者手動處理。
+
+**Test target 提醒**：新增的 `SubscriptionShareCalculatorTests` 與 `SubscriptionShareCodecTests` 需在 Tests/ 拖進 test target 才會跑（同既有 `BillingCycleCalculatorTests`）。
+
 
 ### Phase 3 交付的檔案清單
 

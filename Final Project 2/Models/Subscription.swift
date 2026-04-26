@@ -16,6 +16,8 @@ final class Subscription {
     var notes: String = ""
     var reminderDaysBefore: Int = 1
     var isShared: Bool = false
+    var isOrganizer: Bool = true
+    var myShareOverride: Decimal?
     var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \SubscriptionCategory.subscriptions)
@@ -44,6 +46,8 @@ final class Subscription {
         notes: String = "",
         reminderDaysBefore: Int = 1,
         isShared: Bool = false,
+        isOrganizer: Bool = true,
+        myShareOverride: Decimal? = nil,
         category: SubscriptionCategory? = nil,
         createdAt: Date = Date()
     ) {
@@ -60,6 +64,8 @@ final class Subscription {
         self.notes = notes
         self.reminderDaysBefore = reminderDaysBefore
         self.isShared = isShared
+        self.isOrganizer = isOrganizer
+        self.myShareOverride = myShareOverride
         self.category = category
         self.createdAt = createdAt
     }

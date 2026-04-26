@@ -3,6 +3,10 @@ import SwiftUI
 struct UpcomingPaymentRow: View {
     let subscription: Subscription
     let daysUntil: Int
+    private let shareCalculator = SubscriptionShareCalculator()
+
+    private var myAmount: Decimal { shareCalculator.myAmount(for: subscription) }
+    private var hasSharedSplit: Bool { subscription.isShared && myAmount != subscription.amount }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -19,8 +23,14 @@ struct UpcomingPaymentRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(subscription.amount.formatted(.currency(code: subscription.currency)))
+                Text(myAmount.formatted(.currency(code: subscription.currency)))
                     .font(.subheadline.weight(.medium))
+
+                if hasSharedSplit {
+                    Text("方案 \(subscription.amount.formatted(.currency(code: subscription.currency)))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
 
                 if daysUntil == 0 {
                     Text("今天")
@@ -37,7 +47,7 @@ struct UpcomingPaymentRow: View {
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "\(subscription.name)，\(subscription.amount.formatted(.currency(code: subscription.currency)))，\(daysUntil == 0 ? "今天扣款" : "\(daysUntil) 天後扣款")"
+            "\(subscription.name)，你付\(myAmount.formatted(.currency(code: subscription.currency)))，\(daysUntil == 0 ? "今天扣款" : "\(daysUntil) 天後扣款")"
         )
     }
 }

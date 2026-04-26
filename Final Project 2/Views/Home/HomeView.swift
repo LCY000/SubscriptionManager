@@ -8,6 +8,7 @@ struct HomeView: View {
     @Query private var friends: [Friend]
     @AppStorage("primaryCurrency") private var primaryCurrency = "TWD"
     private let calculator = BillingCycleCalculator()
+    private let shareCalculator = SubscriptionShareCalculator()
 
     private var activeSubscriptions: [Subscription] {
         subscriptions.filter { $0.status == .active || $0.status == .trial }
@@ -15,7 +16,7 @@ struct HomeView: View {
 
     private var monthlyTotal: Decimal {
         activeSubscriptions.reduce(.zero) { sum, sub in
-            let monthly = calculator.monthlyEquivalent(amount: sub.amount, cycle: sub.billingCycle)
+            let monthly = shareCalculator.myMonthlyShare(for: sub)
             return sum + CurrencyConverter.convert(monthly, from: sub.currency, to: primaryCurrency)
         }
     }

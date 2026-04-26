@@ -2,19 +2,41 @@ import SwiftUI
 import Charts
 import SwiftData
 
+enum StatisticsViewMode: String, CaseIterable, Identifiable {
+    case myShare
+    case planTotal
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .myShare:   "我的支出"
+        case .planTotal: "方案總額"
+        }
+    }
+}
+
 struct StatisticsView: View {
     @Query private var allSubscriptions: [Subscription]
     @AppStorage("primaryCurrency") private var primaryCurrency = "TWD"
+    @State private var viewMode: StatisticsViewMode = .myShare
 
     private let calculator = BillingCycleCalculator()
+    private let shareCalculator = SubscriptionShareCalculator()
 
     private var activeSubscriptions: [Subscription] {
         allSubscriptions.filter { $0.status == .active || $0.status == .trial }
     }
 
     private func monthlyInPrimary(_ sub: Subscription) -> Decimal {
-        let monthly = calculator.monthlyEquivalent(amount: sub.amount, cycle: sub.billingCycle)
+        let monthly: Decimal = viewMode == .myShare
+            ? shareCalculator.myMonthlyShare(for: sub)
+            : calculator.monthlyEquivalent(amount: sub.amount, cycle: sub.billingCycle)
         return CurrencyConverter.convert(monthly, from: sub.currency, to: primaryCurrency)
+    }
+
+    /// 用於圖表（按發生扣款日期累加），回傳該訂閱在那個扣款日的「換算後金額」
+    private func amountForChart(_ sub: Subscription) -> Decimal {
+        let raw: Decimal = viewMode == .myShare ? shareCalculator.myAmount(for: sub) : sub.amount
+        return CurrencyConverter.convert(raw, from: sub.currency, to: primaryCurrency)
     }
 
     private var monthlyTotal: Decimal {
@@ -26,6 +48,7 @@ struct StatisticsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                viewModePicker
                 summaryRow
                 if !allSubscriptions.isEmpty {
                     monthlyChartCard
@@ -43,6 +66,16 @@ struct StatisticsView: View {
             .padding(.vertical)
         }
         .navigationTitle("統計")
+    }
+
+    private var viewModePicker: some View {
+        Picker("檢視", selection: $viewMode) {
+            ForEach(StatisticsViewMode.allCases) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
     }
 
     // MARK: - Summary
@@ -103,7 +136,7 @@ struct StatisticsView: View {
                 guard let key = calendar.date(
                     from: calendar.dateComponents([.year, .month], from: date)
                 ) else { continue }
-                totals[key, default: .zero] += CurrencyConverter.convert(sub.amount, from: sub.currency, to: primaryCurrency)
+                totals[key, default: .zero] += amountForChart(sub)
             }
         }
 
@@ -186,7 +219,7 @@ struct StatisticsView: View {
                 guard let key = calendar.date(
                     from: calendar.dateComponents([.year, .month], from: date)
                 ) else { continue }
-                totals[key, default: .zero] += CurrencyConverter.convert(sub.amount, from: sub.currency, to: primaryCurrency)
+                totals[key, default: .zero] += amountForChart(sub)
             }
         }
 
@@ -340,9 +373,10 @@ struct StatisticsView: View {
     // MARK: - Top Subscriptions
 
     private var sortedByMonthly: [Subscription] {
-        activeSubscriptions.sorted {
-            calculator.monthlyEquivalent(amount: $0.amount, cycle: $0.billingCycle) >
-            calculator.monthlyEquivalent(amount: $1.amount, cycle: $1.billingCycle)
+        activeSubscriptions.sorted { lhs, rhs in
+            let l = viewMode == .myShare ? shareCalculator.myMonthlyShare(for: lhs) : calculator.monthlyEquivalent(amount: lhs.amount, cycle: lhs.billingCycle)
+            let r = viewMode == .myShare ? shareCalculator.myMonthlyShare(for: rhs) : calculator.monthlyEquivalent(amount: rhs.amount, cycle: rhs.billingCycle)
+            return l > r
         }
     }
 
