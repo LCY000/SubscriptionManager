@@ -13,6 +13,7 @@ struct SubscriptionListView: View {
     @State private var sortOrder: SubscriptionSortOrder = .nextPayment
     @State private var filterMinAmount: String = ""
     @State private var filterMaxAmount: String = ""
+    @State private var showCancelled = false
 
     private let calculator = BillingCycleCalculator()
 
@@ -56,6 +57,15 @@ struct SubscriptionListView: View {
         }
 
         return result
+    }
+
+    // 主動篩選「已取消」時直接顯示全部；否則把已取消分離到 DisclosureGroup
+    private var filteredActive: [Subscription] {
+        filterStatus == .cancelled ? filtered : filtered.filter { $0.status != .cancelled }
+    }
+
+    private var filteredCancelled: [Subscription] {
+        filterStatus == .cancelled ? [] : filtered.filter { $0.status == .cancelled }
     }
 
     // Grouping only applies when sorting by next payment and no status filter
@@ -112,7 +122,7 @@ struct SubscriptionListView: View {
             } else {
                 List {
                     if useGrouping {
-                        ForEach(group(filtered), id: \.title) { section in
+                        ForEach(group(filteredActive), id: \.title) { section in
                             Section(section.title) {
                                 ForEach(section.items) { subscription in
                                     NavigationLink(value: subscription) {
@@ -122,9 +132,24 @@ struct SubscriptionListView: View {
                             }
                         }
                     } else {
-                        ForEach(filtered) { subscription in
+                        ForEach(filteredActive) { subscription in
                             NavigationLink(value: subscription) {
                                 SubscriptionRowView(subscription: subscription)
+                            }
+                        }
+                    }
+
+                    if !filteredCancelled.isEmpty {
+                        Section {
+                            DisclosureGroup(isExpanded: $showCancelled) {
+                                ForEach(filteredCancelled) { subscription in
+                                    NavigationLink(value: subscription) {
+                                        SubscriptionRowView(subscription: subscription)
+                                    }
+                                }
+                            } label: {
+                                Label("已取消（\(filteredCancelled.count)）", systemImage: "xmark.circle")
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }

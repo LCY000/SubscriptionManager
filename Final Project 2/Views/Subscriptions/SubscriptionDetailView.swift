@@ -9,6 +9,7 @@ struct SubscriptionDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var showingSharedPlanSheet = false
     @State private var showingCancelConfirmation = false
+    @State private var showingPreShareSheet = false
 
     private let calculator = BillingCycleCalculator()
     private let shareCalculator = SubscriptionShareCalculator()
@@ -41,10 +42,10 @@ struct SubscriptionDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if let url = try? SubscriptionShareEncoder.encode(subscription) {
-                    ShareLink(item: url, subject: Text("訂閱方案分享"), message: Text("用訂閱管家匯入「\(subscription.name)」")) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
+                Button {
+                    showingPreShareSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -56,6 +57,9 @@ struct SubscriptionDetailView: View {
         }
         .sheet(isPresented: $showingSharedPlanSheet) {
             SharedPlanEditView(subscription: subscription)
+        }
+        .sheet(isPresented: $showingPreShareSheet) {
+            PreShareSheet(subscription: subscription)
         }
         .confirmationDialog(
             "確認取消「\(subscription.name)」？",
@@ -136,11 +140,13 @@ struct SubscriptionDetailView: View {
                 label: "首次扣款",
                 value: subscription.firstPaymentDate.formatted(date: .abbreviated, time: .omitted)
             )
-            Divider().padding(.leading)
-            DetailRow(
-                label: "下次扣款",
-                value: nextPaymentDate.formatted(date: .abbreviated, time: .omitted)
-            )
+            if subscription.status != .cancelled {
+                Divider().padding(.leading)
+                DetailRow(
+                    label: "下次扣款",
+                    value: nextPaymentDate.formatted(date: .abbreviated, time: .omitted)
+                )
+            }
             if subscription.status == .trial, let trialEnd = subscription.trialEndDate {
                 Divider().padding(.leading)
                 DetailRow(
@@ -173,13 +179,18 @@ struct SubscriptionDetailView: View {
             .padding(.horizontal)
 
         case .paused:
-            HStack(spacing: 12) {
-                StatusActionButton(label: "恢復訂閱", icon: "play.circle", color: .green) {
-                    setStatus(.active)
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    StatusActionButton(label: "恢復訂閱", icon: "play.circle", color: .green) {
+                        setStatus(.active)
+                    }
+                    StatusActionButton(label: "取消訂閱", icon: "xmark.circle", color: .red, isDestructive: true) {
+                        showingCancelConfirmation = true
+                    }
                 }
-                StatusActionButton(label: "取消訂閱", icon: "xmark.circle", color: .red, isDestructive: true) {
-                    showingCancelConfirmation = true
-                }
+                Text("已暫停：此段期間費用不計入統計")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
 
@@ -263,12 +274,50 @@ struct SubscriptionDetailView: View {
     }
 
     @ViewBuilder private var paymentHistoryCard: some View {
-        if !subscription.paymentRecords.isEmpty {
-            PaymentHistorySection(records: subscription.paymentRecords)
-        }
+        PaymentHistorySection(subscription: subscription)
     }
 
     @ViewBuilder private var sharedPlanCard: some View {
+        // Non-organizer: show read-only imported member snapshot
+        if subscription.isShared && !subscription.isOrganizer,
+           let jsonStr = subscription.importedMembersJSON,
+           let data = jsonStr.data(using: .utf8),
+           let members = try? JSONDecoder().decode([SharedMemberInfo].self, from: data),
+           !members.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("共享方案成員")
+                    .font(.headline)
+                    .padding(.horizontal)
+
+                VStack(spacing: 0) {
+                    ForEach(members, id: \.name) { member in
+                        HStack(spacing: 8) {
+                            Text(member.name)
+                                .font(.subheadline)
+                            if member.isOrganizer {
+                                Text("主辦人")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(member.amountPerCycle.formatted(.currency(code: subscription.currency)))
+                                .font(.subheadline)
+                                .foregroundStyle(member.isOrganizer ? .secondary : .primary)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        if member.name != members.last?.name {
+                            Divider().padding(.leading)
+                        }
+                    }
+                }
+                .background(.regularMaterial)
+                .clipShape(.rect(cornerRadius: 16))
+                .padding(.horizontal)
+            }
+        }
+
+        // Organizer: existing editable member list
         if subscription.isShared && subscription.isOrganizer {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -341,6 +390,8 @@ struct SubscriptionDetailView: View {
 
     private func setStatus(_ newStatus: SubscriptionStatus) {
         subscription.status = newStatus
+        // 每次狀態變更都凍結到今天，避免下次 runAll() 回填暫停/取消期間的紀錄
+        subscription.lastAutoGeneratedDate = Date()
         Task { await ReminderScheduler.schedule(for: subscription) }
     }
 
@@ -349,6 +400,115 @@ struct SubscriptionDetailView: View {
         Task { await ReminderScheduler.cancel(for: subId) }
         modelContext.delete(subscription)
         dismiss()
+    }
+}
+
+// MARK: - PreShareSheet
+
+private struct PreShareSheet: View {
+    let subscription: Subscription
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var suggestedShareString: String
+    @State private var selectedRecipient: String? = nil
+
+    private let shareCalculator = SubscriptionShareCalculator()
+    private var defaultSuggestedShare: Decimal { shareCalculator.myAmount(for: subscription) }
+    private var contributions: [Contribution] { subscription.sharedPlan?.contributions ?? [] }
+
+    init(subscription: Subscription) {
+        self.subscription = subscription
+        let calc = SubscriptionShareCalculator()
+        _suggestedShareString = State(initialValue: "\(calc.myAmount(for: subscription))")
+    }
+
+    private func buildShareText(url: URL) -> String {
+        let nickname = UserDefaults.standard.string(forKey: "userNickname") ?? ""
+        let invite = nickname.isEmpty ? "有人" : nickname
+        return "\(invite) 邀請你加入「\(subscription.name)」方案！\n點擊連結，用「訂閱管家」一鍵匯入方案\n\(url.absoluteString)"
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if subscription.isOrganizer && !contributions.isEmpty {
+                    Section("成員與分擔金額") {
+                        let nickname = UserDefaults.standard.string(forKey: "userNickname") ?? ""
+                        if !nickname.isEmpty {
+                            HStack {
+                                Text(nickname)
+                                Text("（你）").foregroundStyle(.secondary)
+                                Spacer()
+                                Text(defaultSuggestedShare.formatted(.currency(code: subscription.currency)))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        ForEach(contributions, id: \.id) { c in
+                            if let name = c.friend?.name {
+                                HStack {
+                                    Text(name)
+                                    Spacer()
+                                    Text(c.amountPerMonth.formatted(.currency(code: subscription.currency)))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    Section {
+                        Picker("這個連結分享給", selection: $selectedRecipient) {
+                            Text("不指定").tag(String?.none)
+                            ForEach(contributions.compactMap { $0.friend }, id: \.name) { f in
+                                Text(f.name).tag(Optional(f.name))
+                            }
+                        }
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Text("建議分擔金額")
+                        Spacer()
+                        TextField("金額", text: $suggestedShareString)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        Text(subscription.currency)
+                            .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text("收件方看到的預填金額，可自行調整")
+                }
+
+                if let url = try? SubscriptionShareEncoder.encode(
+                    subscription,
+                    suggestedShare: Decimal(string: suggestedShareString) ?? defaultSuggestedShare,
+                    recipientName: selectedRecipient
+                ) {
+                    Section {
+                        ShareLink(item: buildShareText(url: url), subject: Text("訂閱方案邀請")) {
+                            Label("分享方案連結", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("分享方案")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("取消") { dismiss() }
+                }
+            }
+            .onChange(of: selectedRecipient) { _, name in
+                if let name,
+                   let c = contributions.first(where: { $0.friend?.name == name }) {
+                    suggestedShareString = "\(c.amountPerMonth)"
+                } else {
+                    suggestedShareString = "\(defaultSuggestedShare)"
+                }
+            }
+        }
     }
 }
 

@@ -126,7 +126,7 @@ struct SubscriptionEditView: View {
                     }
                 }
 
-                Section("付款週期") {
+                Section {
                     Picker("週期", selection: $cycleType) {
                         ForEach(BillingCyclePickerType.allCases, id: \.self) { type in
                             Text(type.displayName).tag(type)
@@ -138,6 +138,14 @@ struct SubscriptionEditView: View {
                     }
 
                     DatePicker("首次扣款日", selection: $firstPaymentDate, displayedComponents: .date)
+                } header: {
+                    Text("付款週期")
+                } footer: {
+                    if cycleType == .monthly {
+                        Text("每月相同日期扣款（如：每月15號）")
+                    } else if cycleType == .custom {
+                        Text("固定天數間隔扣款（如：Claude、ChatGPT 每30天）")
+                    }
                 }
 
                 Section("狀態") {
@@ -289,6 +297,7 @@ struct SubscriptionEditView: View {
                 category: selectedCategory
             )
             modelContext.insert(newSub)
+            PaymentAutoGenerator.run(for: newSub, in: modelContext)
             savedSub = newSub
         }
 
@@ -304,7 +313,7 @@ enum ShareMode: String, CaseIterable, Hashable {
 
     var displayName: String {
         switch self {
-        case .solo:      "一般"
+        case .solo:      "個人方案（不分帳）"
         case .organizer: "我主辦分帳"
         case .member:    "朋友主辦我分擔"
         }
@@ -323,7 +332,7 @@ private enum BillingCyclePickerType: String, CaseIterable {
         case .quarterly:  "每季"
         case .semiAnnual: "每半年"
         case .yearly:     "每年"
-        case .custom:     "自訂天數"
+        case .custom:     "固定天數間隔"
         }
     }
 }

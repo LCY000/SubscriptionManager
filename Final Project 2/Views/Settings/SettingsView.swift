@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
+    @AppStorage("userNickname") private var userNickname = ""
     @AppStorage("defaultCurrency") private var defaultCurrency = "TWD"
     @AppStorage("defaultReminderDays") private var defaultReminderDays = 1
     @AppStorage("notificationHour") private var notificationHour = 9
@@ -19,6 +20,17 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            // MARK: 個人
+            Section("個人") {
+                HStack {
+                    Text("我的暱稱")
+                    Spacer()
+                    TextField("用於分享訊息", text: $userNickname)
+                        .multilineTextAlignment(.trailing)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             // MARK: 通知
             Section("通知") {
                 Stepper(

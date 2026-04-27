@@ -5,6 +5,7 @@ struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var selectedTab = AppTab.home
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var subscriptions: [Subscription]
 
     var body: some View {
@@ -40,6 +41,11 @@ struct ContentView: View {
         }
         .task {
             await seedCategoriesIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                PaymentAutoGenerator.runAll(for: subscriptions, in: modelContext)
+            }
         }
         .onChange(of: subscriptions.count) { _, _ in
             WidgetRefresher.refresh(subscriptions: subscriptions)

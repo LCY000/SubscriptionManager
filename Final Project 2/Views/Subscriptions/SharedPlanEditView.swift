@@ -13,8 +13,15 @@ struct SharedPlanEditView: View {
     @State private var customAmounts: [UUID: String] = [:]
 
     private var perMemberAmount: Decimal {
-        guard totalMembers > 0 else { return .zero }
-        return subscription.amount / Decimal(totalMembers)
+        guard totalMembers > 1 else { return subscription.amount }
+        var result = subscription.amount / Decimal(totalMembers)
+        var rounded = Decimal.zero
+        NSDecimalRound(&rounded, &result, 0, .down)
+        return rounded
+    }
+
+    private var organizerShare: Decimal {
+        subscription.amount - perMemberAmount * Decimal(totalMembers - 1)
     }
 
     private var existingPlan: SharedPlan? { subscription.sharedPlan }
@@ -62,6 +69,12 @@ struct SharedPlanEditView: View {
                     LabeledContent("每人費用") {
                         Text(perMemberAmount.formatted(.currency(code: subscription.currency)))
                             .foregroundStyle(.secondary)
+                    }
+                    if organizerShare != perMemberAmount {
+                        LabeledContent("主辦人實付") {
+                            Text(organizerShare.formatted(.currency(code: subscription.currency)))
+                                .foregroundStyle(.orange)
+                        }
                     }
                 }
             }

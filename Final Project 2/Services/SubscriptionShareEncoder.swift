@@ -19,7 +19,36 @@ struct SubscriptionShareEncoder {
     static let host = "import"
     private static let maxPayloadBytes = 4096
 
-    static func encode(_ subscription: Subscription, suggestedShare: Decimal? = nil) throws -> URL {
+    static func encode(_ subscription: Subscription, suggestedShare: Decimal? = nil, recipientName: String? = nil) throws -> URL {
+        let nickname = UserDefaults.standard.string(forKey: "userNickname")
+        let myAmt = SubscriptionShareCalculator().myAmount(for: subscription)
+
+        var organizerName: String? = nil
+        var members: [SharedMemberInfo]? = nil
+
+        if subscription.isOrganizer, let plan = subscription.sharedPlan {
+            var list: [SharedMemberInfo] = []
+            if let nick = nickname, !nick.isEmpty {
+                organizerName = nick
+                list.append(.init(name: nick, amountPerCycle: myAmt, isOrganizer: true))
+            }
+            for c in plan.contributions {
+                if let n = c.friend?.name {
+                    list.append(.init(name: n, amountPerCycle: c.amountPerMonth, isOrganizer: false))
+                }
+            }
+            members = list.isEmpty ? nil : list
+        }
+
+        let shareAmount: Decimal
+        if let recipientName,
+           let plan = subscription.sharedPlan,
+           let c = plan.contributions.first(where: { $0.friend?.name == recipientName }) {
+            shareAmount = c.amountPerMonth
+        } else {
+            shareAmount = suggestedShare ?? myAmt
+        }
+
         let payload = SharedSubscriptionPayload(
             name: subscription.name,
             amount: subscription.amount,
@@ -30,7 +59,10 @@ struct SubscriptionShareEncoder {
             iconAssetName: subscription.iconAssetName,
             categoryName: subscription.category?.name,
             notes: subscription.notes,
-            suggestedShare: suggestedShare ?? SubscriptionShareCalculator().myAmount(for: subscription)
+            suggestedShare: shareAmount,
+            organizerName: organizerName,
+            members: members,
+            recipientName: recipientName
         )
         return try encode(payload)
     }

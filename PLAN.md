@@ -337,7 +337,9 @@ Final Project 2/
 | Phase 2 — 分帳旗艦 | ✅ 完成 | 2026-04-21 | BUILD SUCCEEDED |
 | Phase 3 — 視覺化 | ✅ 完成 | 2026-04-22 | 全部 8 項完成，BUILD SUCCEEDED |
 | Phase 4 — 進階整合 | ✅ 完成 | 2026-04-25 | 7 項全部完成，BUILD SUCCEEDED |
-| 擴充 — 三大痛點修正 | ✅ 完成 | 2026-04-26 | 我的份額模型、朋友主辦流程、深層連結分享，BUILD SUCCEEDED |
+| 擴充 — 三大痛點修正（v1.1） | ✅ 完成 | 2026-04-26 | 我的份額模型、朋友主辦流程、深層連結分享，BUILD SUCCEEDED |
+| Phase E — 暱稱 + 分享成員列表（v1.2） | ✅ 完成 | 2026-04-27 | 五項 UX 修正 + 分享成員列表 + 三行訊息格式，BUILD SUCCEEDED |
+| Phase F — PaymentRecord 驅動統計（v1.3） | ✅ 完成 | 2026-04-27 | 付款紀錄自動生成、可編輯歷史、統計改用真實紀錄，BUILD SUCCEEDED |
 
 ### 擴充修正 — 2026-04-26
 
@@ -432,3 +434,314 @@ Final Project 2/
 **Tests（Opus）**
 - `BillingCycleCalculatorTests.swift`（13 筆）
 - `ContributionSettlerTests.swift`（12 筆）
+
+---
+
+## Phase E：暱稱 + 分享成員列表 + 訊息格式化（v1.2）
+
+> 狀態：✅ 完成，2026-04-27
+
+### Context
+
+Phase D 實作了深層連結分享（`subhub://`），但有兩個問題：
+1. 分享出去的訊息格式差（URL 在前、說明在後，使用者看不懂如何操作）
+2. Payload 缺少「主辦人是誰」和「其他成員分擔多少」的資訊，收件方完全不知道方案全貌
+
+目標：
+1. **設定暱稱** — 顯示在分享訊息與 ImportSubscriptionView 主辦人欄
+2. **主辦人分享時帶完整成員名單**（名字 + 各自金額）打包進 payload
+3. **分享前可選指定收件人** → App 自動高亮該成員 + 預填金額（可選，不強制）
+4. **分享訊息改為三行純文字格式**，URL 在最後一行
+
+### 分享訊息目標格式
+
+```
+陳大明 邀請你加入「Spotify 家庭」方案！
+點擊連結，用「訂閱管家」一鍵匯入方案
+subhub://import?v=2&data=eyJ...
+```
+
+`\n` 在 LINE / iMessage / 複製貼上都保留為真實換行。`item` 從 `URL` 改為 `String`，subhub:// URL 在已安裝 App 的裝置仍可點擊觸發。
+
+### 資料流設計
+
+```
+分享方（主辦人，暱稱「陳大明」）
+  PreShareSheet：
+    成員列表（唯讀）：陳大明(你) 130 / 林沛妤 130 / 王小明 130
+    指定收件人 Picker：不指定 / 林沛妤 / 王小明
+    → 選林沛妤 → 分配金額自動填 130
+
+  Encoder payload：
+    organizerName = "陳大明"
+    members = [{陳大明, 130, isOrganizer:true}, {林沛妤, 130}, {王小明, 130}]
+    recipientName = "林沛妤"
+    suggestedShare = 130  ← 無 members 資料時的 fallback
+
+接收方（林沛妤）
+  ImportSubscriptionView：
+    主辦人：陳大明
+    共享成員：陳大明 NT$130 / ▶林沛妤 NT$130（反白・預填）/ 王小明 NT$130
+    我的角色：[✓] 朋友主辦
+    我每次付：130（from matched member）
+```
+
+### 關鍵設計決策
+
+- **版本號升至 v=2**：`SharedSubscriptionPayload.currentVersion = 2`；decoder 檢查 `version <= currentVersion`，收到 v=1 舊連結仍可正常解碼（新欄位 Optional，舊連結中不存在即為 nil）
+- **非主辦人分享**：`isOrganizer == false` → `organizerName/members = nil`，沿用 v1.1
+- **暱稱未填**：不傳 organizerName，成員列表中主辦人那行也不加（避免空名）
+- **`Contribution.amountPerMonth` 實際是 per-cycle**：與 `subscription.amount` 同單位，不需換算
+
+### 修改檔案清單
+
+| 檔案 | 動作 | 說明 |
+|---|---|---|
+| `Models/SharedSubscriptionPayload.swift` | 改 | 新增 `SharedMemberInfo` struct；payload 加 `organizerName`、`members`、`recipientName` |
+| `Views/Settings/SettingsView.swift` | 改 | 最頂部新增「個人」Section，含「我的暱稱」TextField（`@AppStorage("userNickname")`） |
+| `Services/SubscriptionShareEncoder.swift` | 改 | 新增 `recipientName` 參數；讀 nickname；isOrganizer 時從 sharedPlan 建 members 列表 |
+| `Views/Subscriptions/SubscriptionDetailView.swift` | 改 | PreShareSheet：成員唯讀列表、指定收件人 Picker、`buildShareText(url:)` → `ShareLink(item: String)` |
+| `Views/Subscriptions/ImportSubscriptionView.swift` | 改 | 加「主辦人」列；新增「共享成員」Section（recipientName 反白）；init 優先 matched member 金額 |
+
+### 實作細節
+
+**SharedSubscriptionPayload 新增：**
+```swift
+struct SharedMemberInfo: Codable, Hashable {
+    var name: String
+    var amountPerCycle: Decimal
+    var isOrganizer: Bool
+}
+// payload 加，同時 currentVersion 改為 2：
+static let currentVersion = 2
+var organizerName: String?
+var members: [SharedMemberInfo]?
+var recipientName: String?
+```
+
+**Encoder 建 members 邏輯（isOrganizer && sharedPlan != nil 時）：**
+```swift
+var list: [SharedMemberInfo] = []
+if let nick = nickname, !nick.isEmpty {
+    list.append(.init(name: nick, amountPerCycle: myAmt, isOrganizer: true))
+}
+for c in plan.contributions {
+    if let n = c.friend?.name {
+        list.append(.init(name: n, amountPerCycle: c.amountPerMonth, isOrganizer: false))
+    }
+}
+members = list.isEmpty ? nil : list
+```
+
+**PreShareSheet 成員唯讀列表（顯示在 Picker 上方）：**
+```swift
+let nickname = UserDefaults.standard.string(forKey: "userNickname") ?? ""
+let contributions = subscription.sharedPlan?.contributions ?? []
+
+// 主辦人自己那行（只在暱稱有填時顯示）
+if !nickname.isEmpty {
+    HStack {
+        Text(nickname)
+        Text("（你）").foregroundStyle(.secondary)
+        Spacer()
+        Text(defaultSuggestedShare.formatted(.currency(code: subscription.currency)))
+    }
+}
+// 朋友各行
+ForEach(contributions, id: \.id) { c in
+    if let name = c.friend?.name {
+        HStack {
+            Text(name)
+            Spacer()
+            Text(c.amountPerMonth.formatted(.currency(code: subscription.currency)))
+        }
+    }
+}
+```
+
+**PreShareSheet 收件人 Picker（取金額從 sharedPlan.contributions，勿用 friend.contributions）：**
+```swift
+@State private var selectedRecipient: String? = nil
+
+Picker("這個連結分享給", selection: $selectedRecipient) {
+    Text("不指定").tag(String?.none)
+    ForEach(contributions.compactMap { $0.friend }, id: \.name) { f in
+        Text(f.name).tag(Optional(f.name))
+    }
+}
+.onChange(of: selectedRecipient) { _, name in
+    if let name,
+       let c = contributions.first(where: { $0.friend?.name == name }) {
+        suggestedShareString = "\(c.amountPerMonth)"
+    } else {
+        // 切回「不指定」時還原主辦人份額
+        suggestedShareString = "\(defaultSuggestedShare)"
+    }
+}
+```
+
+**buildShareText（PreShareSheet 內）：**
+```swift
+private func buildShareText(url: URL) -> String {
+    let nickname = UserDefaults.standard.string(forKey: "userNickname") ?? ""
+    let invite = nickname.isEmpty ? "有人" : nickname
+    return "\(invite) 邀請你加入「\(subscription.name)」方案！\n點擊連結，用「訂閱管家」一鍵匯入方案\n\(url.absoluteString)"
+}
+// ShareLink 改為：
+ShareLink(item: buildShareText(url: url), subject: Text("訂閱方案邀請")) { ... }
+```
+
+**ImportSubscriptionView init 金額優先順序：**
+1. `payload.recipientName` 對應的 `member.amountPerCycle`
+2. `payload.suggestedShare`
+3. `payload.amount`（全額）
+
+**金額輸入欄 footer 說明文字（動態，依情境切換）：**
+```swift
+var amountFooter: String {
+    if payload.recipientName != nil {
+        // 有指定收件人（不論是否有主辦人名字）
+        if let org = payload.organizerName, !org.isEmpty {
+            return "由 \(org) 分配的金額，可自行調整"
+        } else {
+            return "由分享者分配的金額，可自行調整"
+        }
+    } else if payload.suggestedShare != nil {
+        return "分享者提供的參考金額，可自行調整"
+    } else {
+        return "請填入你實際分擔的金額"
+    }
+}
+```
+TextField 維持可編輯，footer 只說明金額來源，讓使用者知道這是分配值而非系統推算。
+
+**ImportSubscriptionView 成員列表高亮：**
+```swift
+ForEach(members, id: \.name) { member in
+    HStack {
+        if member.name == payload.recipientName {
+            Image(systemName: "person.fill.checkmark").foregroundStyle(.blue).font(.caption)
+        }
+        Text(member.name)
+            .fontWeight(member.name == payload.recipientName ? .semibold : .regular)
+        Spacer()
+        Text(member.amountPerCycle.formatted(.currency(code: payload.currency)))
+            .foregroundStyle(member.name == payload.recipientName ? .primary : .secondary)
+    }
+}
+```
+
+### 潛在陷阱
+
+1. **`Friend.contributions` 跨 Plan**：取金額一定從 `subscription.sharedPlan!.contributions` 找，不走 `friend.contributions`
+2. **暱稱未填**：organizer 那行不加進 members，避免空名字出現
+3. **recipientName 不在 members**：ImportSubscriptionView 不做高亮，用 `suggestedShare` 預填，安全退化
+4. **URL 長度**：6 成員 × ~60 chars → base64 ~350 chars，遠低於 4096 bytes 上限
+5. **非主辦人分享**：`isOrganizer == false` → members/organizerName = nil，不影響
+
+### 驗證 golden path
+
+| # | 操作 | 預期 |
+|---|---|---|
+| 1 | 設定頁填暱稱「陳大明」 | UserDefaults 存入 |
+| 2 | Spotify 390，我主辦，加林沛妤 130、王小明 130 | 主辦人份額 130 |
+| 3 | 詳情頁點分享 → PreShareSheet | 成員列表三人；Picker 有「不指定/林沛妤/王小明」 |
+| 4 | 選「林沛妤」→ 建議金額自動填 130 → 點分享 | 訊息三行，URL 在最後 |
+| 5 | 另一台點連結 | ImportSubscriptionView 顯示主辦人「陳大明」、三人列表、「林沛妤」反白 |
+| 6 | 按加入 | 建立「朋友主辦，myShareOverride=130」訂閱 |
+| 7 | 分享給「不指定」→ 收件方 | 成員列表三人，無反白 |
+| 8 | 暱稱留空再分享 | ImportSubscriptionView 不顯示主辦人列 |
+| 9 | 查看 LINE 收到的文字 | 三行格式，非純 URL |
+| 10 | 暱稱「陳大明」分享 | 第一行「陳大明 邀請你加入…」 |
+| 11 | PreShareSheet 選「林沛妤」後切回「不指定」 | 建議金額還原為主辦人份額（130），不卡在 130 |
+| 12 | 有 recipientName 但 organizerName 空（暱稱未填）時收到連結 | footer 顯示「由分享者分配的金額，可自行調整」（不出現空名） |
+
+---
+
+## Phase F：PaymentRecord 驅動統計（v1.3）
+
+> 狀態：✅ 完成，2026-04-27
+
+### Context
+
+Phase E 以前，統計系統完全靠 `BillingCycleCalculator` 推算付款日期，`PaymentRecord` model 雖存在但從未寫入，導致三個問題：
+
+1. **統計不準確**：暫停/取消期間仍被計入；使用者無法刪除多記的那筆
+2. **暫停語意不一致**：pause / cancel 在計算上完全相同，歷史紀錄也沒有差別
+3. **30天固定週期 UX 不清楚**：Claude / ChatGPT 等按固定30天扣款，「自訂天數」label 不直觀
+
+### 架構決策
+
+- 訂閱**建立時**立即從 `firstPaymentDate` 回填所有過去 `PaymentRecord`（系統在開發中，無舊版本相容需求）
+- 暫停 = 暫停自動產生紀錄；取消 = 停止追蹤。每次狀態變更（pause / resume / cancel / reactivate）都把 `lastAutoGeneratedDate = Date()` 凍結到今天，避免恢復後回填中間空白期
+- `PaymentRecord` 同時存 `amount`（我的份額快照）和 `planAmount`（方案全額快照），讓統計在「我的支出」和「方案總額」兩種模式下都能用真實紀錄
+
+### 修改檔案清單
+
+| 檔案 | 改動 |
+|---|---|
+| `Models/PaymentRecord.swift` | 加 `planAmount: Decimal = Decimal.zero` 欄位與 init 參數 |
+| `Models/Subscription.swift` | 加 `lastAutoGeneratedDate: Date?`（SwiftData lightweight migration） |
+| `Services/PaymentAutoGenerator.swift` | **新建**：`run(for:in:)` / `runAll(for:in:)` 靜態方法 |
+| `Views/Subscriptions/SubscriptionEditView.swift` | 新增訂閱時呼叫 `run()`；「自訂天數」改名「固定天數間隔」；週期 Section 加 footer 說明 |
+| `Views/Subscriptions/ImportSubscriptionView.swift` | 匯入後呼叫 `run()` |
+| `ContentView.swift` | 加 `@Environment(\.scenePhase)`；App 前景時呼叫 `runAll()` |
+| `Views/Subscriptions/SubscriptionDetailView.swift` | `setStatus()` 每次狀態變更都凍結 `lastAutoGeneratedDate`；已暫停狀態加說明文字；`paymentHistoryCard` 永遠顯示，改傳 `subscription` |
+| `Views/Subscriptions/PaymentHistorySection.swift` | 改傳 `subscription`；移除 10 筆限制；加 swipe-to-delete；tap 開編輯；header 加「＋」新增按鈕；空狀態文字 |
+| `Views/Subscriptions/PaymentRecordEditView.swift` | **新建**：新增/編輯 `PaymentRecord` 的表單（日期、金額、備註） |
+| `Views/Statistics/StatisticsView.swift` | `monthlyChartData` / `yearlyTrendData` 改用 `sub.paymentRecords` 迴圈：myShare 取 `record.amount`，planTotal 取 `record.planAmount` |
+
+### PaymentAutoGenerator 邏輯
+
+```swift
+static func run(for subscription: Subscription, in context: ModelContext) {
+    guard subscription.status == .active || subscription.status == .trial else { return }
+
+    let today = Calendar.current.startOfDay(for: Date())
+    let from: Date
+    let exclusiveFrom: Bool
+
+    if let last = subscription.lastAutoGeneratedDate {
+        from = Calendar.current.startOfDay(for: last)
+        exclusiveFrom = true   // 上次已產生到 from 這天，從之後開始
+    } else {
+        from = Calendar.current.startOfDay(for: subscription.firstPaymentDate)
+        exclusiveFrom = false  // 首次，包含 firstPaymentDate
+    }
+
+    let allDates = calculator.paymentDates(firstPaymentDate:billingCycle:through: today)
+    let newDates = allDates.filter { exclusiveFrom ? $0 > from : $0 >= from }
+
+    for date in newDates {
+        context.insert(PaymentRecord(paidDate: date, amount: myAmt, planAmount: sub.amount, ...))
+    }
+    subscription.lastAutoGeneratedDate = today
+}
+```
+
+### setStatus 凍結邏輯
+
+```swift
+private func setStatus(_ newStatus: SubscriptionStatus) {
+    subscription.status = newStatus
+    subscription.lastAutoGeneratedDate = Date()  // 無論往哪個方向都凍結
+    Task { await ReminderScheduler.schedule(for: subscription) }
+}
+```
+
+**為什麼每個方向都要更新**：若只在暫停/取消時更新，恢復時 `lastAutoGeneratedDate` 停在暫停那天，下次 `runAll()` 會把整段暫停期補上（錯誤）。
+
+### 驗證清單
+
+| # | 操作 | 預期 |
+|---|---|---|
+| 1 | 新增月付訂閱，firstPaymentDate = 3個月前 | 詳情頁立即看到 3 筆 PaymentRecord |
+| 2 | 背景切前景（模擬隔天） | 新增1筆，不重複 |
+| 3 | 暫停（5/1）→ 等兩個月 → 恢復（7/1） | 5、6月無 PaymentRecord；7月起正常產生 |
+| 4 | 詳情頁顯示「已暫停：此段期間費用不計入統計」 | 暫停狀態下出現說明文字 |
+| 5 | 取消 → 重新啟用 | 取消期間無紀錄，重啟後下個週期再產生 |
+| 6 | 左滑刪除一筆 PaymentRecord | 統計頁那個月金額減少 |
+| 7 | 點一筆 PaymentRecord → 編輯金額 | 統計頁即時更新 |
+| 8 | PaymentHistorySection 點「＋」手動新增 | 統計即時更新 |
+| 9 | 統計切換 myShare / planTotal | myShare 用 record.amount；planTotal 用 record.planAmount |
+| 10 | 設「固定天數間隔」30 天 | footer 顯示「固定天數間隔扣款（如：Claude、ChatGPT 每30天）」 |

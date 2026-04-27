@@ -34,8 +34,31 @@ struct ImportSubscriptionView: View {
     init(payload: SharedSubscriptionPayload, onDismiss: @escaping () -> Void) {
         self.payload = payload
         self.onDismiss = onDismiss
-        let suggestion = payload.suggestedShare ?? payload.amount
-        _myShareString = State(initialValue: "\(suggestion)")
+        // Priority: recipientName matched member → suggestedShare → full amount
+        let initialShare: Decimal
+        if let recipientName = payload.recipientName,
+           let matched = payload.members?.first(where: { $0.name == recipientName }) {
+            initialShare = matched.amountPerCycle
+        } else if let suggested = payload.suggestedShare {
+            initialShare = suggested
+        } else {
+            initialShare = payload.amount
+        }
+        _myShareString = State(initialValue: "\(initialShare)")
+    }
+
+    private var amountFooter: String {
+        if payload.recipientName != nil {
+            if let org = payload.organizerName, !org.isEmpty {
+                return "由 \(org) 分配的金額，可自行調整"
+            } else {
+                return "由分享者分配的金額，可自行調整"
+            }
+        } else if payload.suggestedShare != nil {
+            return "分享者提供的參考金額，可自行調整"
+        } else {
+            return "請填入你實際分擔的金額"
+        }
     }
 
     var body: some View {
@@ -62,6 +85,36 @@ struct ImportSubscriptionView: View {
                     }
                 }
 
+                if let organizerName = payload.organizerName, !organizerName.isEmpty {
+                    Section("主辦人") {
+                        Label(organizerName, systemImage: "person.fill")
+                    }
+                }
+
+                if let members = payload.members, !members.isEmpty {
+                    Section("共享成員") {
+                        ForEach(members, id: \.name) { member in
+                            HStack {
+                                if member.name == payload.recipientName {
+                                    Image(systemName: "person.fill.checkmark")
+                                        .foregroundStyle(.blue)
+                                        .font(.caption)
+                                }
+                                Text(member.name)
+                                    .fontWeight(member.name == payload.recipientName ? .semibold : .regular)
+                                if member.isOrganizer {
+                                    Text("主辦人")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(member.amountPerCycle.formatted(.currency(code: payload.currency)))
+                                    .foregroundStyle(member.name == payload.recipientName ? .primary : .secondary)
+                            }
+                        }
+                    }
+                }
+
                 Section {
                     Toggle("由朋友主辦，我只記錄我的份額", isOn: $roleIsMember)
                     if roleIsMember {
@@ -75,9 +128,7 @@ struct ImportSubscriptionView: View {
                 } header: {
                     Text("我的角色")
                 } footer: {
-                    Text(roleIsMember
-                         ? "建議金額為對方分享時的設定，可調整"
-                         : "整個方案會以你個人訂閱方式記錄全額")
+                    Text(roleIsMember ? amountFooter : "整個方案會以你個人訂閱方式記錄全額")
                         .font(.caption)
                 }
             }
@@ -100,6 +151,14 @@ struct ImportSubscriptionView: View {
             ? (Decimal(string: myShareString) ?? payload.suggestedShare)
             : nil
 
+        var membersJSON: String? = nil
+        if roleIsMember,
+           let members = payload.members, !members.isEmpty,
+           let data = try? JSONEncoder().encode(members),
+           let str = String(data: data, encoding: .utf8) {
+            membersJSON = str
+        }
+
         let category = categories.first { $0.name == payload.categoryName }
 
         let sub = Subscription(
@@ -114,9 +173,11 @@ struct ImportSubscriptionView: View {
             isShared: roleIsMember,
             isOrganizer: !roleIsMember,
             myShareOverride: myShare,
+            importedMembersJSON: membersJSON,
             category: category
         )
         modelContext.insert(sub)
+        PaymentAutoGenerator.run(for: sub, in: modelContext)
         Task { await ReminderScheduler.schedule(for: sub) }
         onDismiss()
     }

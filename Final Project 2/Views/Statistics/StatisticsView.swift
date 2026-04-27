@@ -33,12 +33,6 @@ struct StatisticsView: View {
         return CurrencyConverter.convert(monthly, from: sub.currency, to: primaryCurrency)
     }
 
-    /// 用於圖表（按發生扣款日期累加），回傳該訂閱在那個扣款日的「換算後金額」
-    private func amountForChart(_ sub: Subscription) -> Decimal {
-        let raw: Decimal = viewMode == .myShare ? shareCalculator.myAmount(for: sub) : sub.amount
-        return CurrencyConverter.convert(raw, from: sub.currency, to: primaryCurrency)
-    }
-
     private var monthlyTotal: Decimal {
         activeSubscriptions.reduce(.zero) { $0 + monthlyInPrimary($1) }
     }
@@ -116,27 +110,19 @@ struct StatisticsView: View {
         let calendar = Calendar.current
         let now = Date()
 
+        guard let sixMonthsAgo = calendar.date(byAdding: .month, value: -5, to: now),
+              let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: sixMonthsAgo))
+        else { return [] }
+
         var totals: [Date: Decimal] = [:]
 
-        for sub in allSubscriptions where sub.status != .cancelled {
-            guard
-                let sixMonthsAgo = calendar.date(byAdding: .month, value: -5, to: now),
-                let monthStart = calendar.date(
-                    from: calendar.dateComponents([.year, .month], from: sixMonthsAgo)
-                )
-            else { continue }
-
-            let dates = calculator.paymentDates(
-                firstPaymentDate: sub.firstPaymentDate,
-                billingCycle: sub.billingCycle,
-                through: now
-            )
-
-            for date in dates where date >= monthStart {
-                guard let key = calendar.date(
-                    from: calendar.dateComponents([.year, .month], from: date)
-                ) else { continue }
-                totals[key, default: .zero] += amountForChart(sub)
+        for sub in allSubscriptions {
+            for record in sub.paymentRecords {
+                guard record.paidDate >= monthStart,
+                      let key = calendar.date(from: calendar.dateComponents([.year, .month], from: record.paidDate))
+                else { continue }
+                let raw = viewMode == .myShare ? record.amount : record.planAmount
+                totals[key, default: .zero] += CurrencyConverter.convert(raw, from: record.currency, to: primaryCurrency)
             }
         }
 
@@ -199,27 +185,19 @@ struct StatisticsView: View {
         let calendar = Calendar.current
         let now = Date()
 
+        guard let elevenMonthsAgo = calendar.date(byAdding: .month, value: -11, to: now),
+              let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: elevenMonthsAgo))
+        else { return [] }
+
         var totals: [Date: Decimal] = [:]
 
-        for sub in allSubscriptions where sub.status != .cancelled {
-            guard
-                let elevenMonthsAgo = calendar.date(byAdding: .month, value: -11, to: now),
-                let monthStart = calendar.date(
-                    from: calendar.dateComponents([.year, .month], from: elevenMonthsAgo)
-                )
-            else { continue }
-
-            let dates = calculator.paymentDates(
-                firstPaymentDate: sub.firstPaymentDate,
-                billingCycle: sub.billingCycle,
-                through: now
-            )
-
-            for date in dates where date >= monthStart {
-                guard let key = calendar.date(
-                    from: calendar.dateComponents([.year, .month], from: date)
-                ) else { continue }
-                totals[key, default: .zero] += amountForChart(sub)
+        for sub in allSubscriptions {
+            for record in sub.paymentRecords {
+                guard record.paidDate >= monthStart,
+                      let key = calendar.date(from: calendar.dateComponents([.year, .month], from: record.paidDate))
+                else { continue }
+                let raw = viewMode == .myShare ? record.amount : record.planAmount
+                totals[key, default: .zero] += CurrencyConverter.convert(raw, from: record.currency, to: primaryCurrency)
             }
         }
 
