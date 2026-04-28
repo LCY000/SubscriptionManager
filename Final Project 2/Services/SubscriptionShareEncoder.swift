@@ -41,12 +41,14 @@ struct SubscriptionShareEncoder {
         }
 
         let shareAmount: Decimal
-        if let recipientName,
-           let plan = subscription.sharedPlan,
-           let c = plan.contributions.first(where: { $0.friend?.name == recipientName }) {
+        if let explicit = suggestedShare {
+            shareAmount = explicit
+        } else if let recipientName,
+                  let plan = subscription.sharedPlan,
+                  let c = plan.contributions.first(where: { $0.friend?.name == recipientName }) {
             shareAmount = c.amountPerMonth
         } else {
-            shareAmount = suggestedShare ?? myAmt
+            shareAmount = myAmt
         }
 
         let payload = SharedSubscriptionPayload(
@@ -70,10 +72,14 @@ struct SubscriptionShareEncoder {
     static func encode(_ payload: SharedSubscriptionPayload) throws -> URL {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(payload)
-        guard data.count <= maxPayloadBytes else { throw SubscriptionShareError.payloadTooLarge }
+        let jsonData = try encoder.encode(payload)
+        guard jsonData.count <= maxPayloadBytes else { throw SubscriptionShareError.payloadTooLarge }
 
-        let base64 = data.base64EncodedString()
+        guard let compressedData = try? (jsonData as NSData).compressed(using: .zlib) as Data else {
+            throw SubscriptionShareError.encodingFailed
+        }
+
+        let base64 = compressedData.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")

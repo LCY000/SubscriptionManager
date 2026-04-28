@@ -7,7 +7,7 @@ struct SharedMemberInfo: Codable, Hashable {
 }
 
 struct SharedSubscriptionPayload: Codable, Hashable {
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     var version: Int = SharedSubscriptionPayload.currentVersion
     var name: String

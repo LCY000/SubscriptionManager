@@ -35,7 +35,7 @@ struct SubscriptionShareCodecTests {
         #expect(url.scheme == "subhub")
         #expect(url.host == "import")
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        #expect(items.contains(where: { $0.name == "v" && $0.value == "1" }))
+        #expect(items.contains(where: { $0.name == "v" && $0.value == "3" }))
         #expect(items.contains(where: { $0.name == "data" && $0.value != nil }))
     }
 
@@ -72,5 +72,25 @@ struct SubscriptionShareCodecTests {
         let decoded = try SubscriptionShareDecoder.decode(url)
         #expect(decoded.billingCycle == .yearly)
         #expect(decoded.suggestedShare == 165)
+    }
+
+    @Test("suggestedShare 在 members 快照存在時仍被保留")
+    func suggestedSharePreservedWithMembers() throws {
+        let payload = SharedSubscriptionPayload(
+            name: "YouTube Premium", amount: 219, currency: "TWD", billingCycle: .monthly,
+            firstPaymentDate: Date(timeIntervalSince1970: 1_800_000_000),
+            brandColorHex: "#FF0000", iconAssetName: nil, categoryName: nil, notes: "",
+            suggestedShare: 80,
+            organizerName: "陳小明",
+            members: [
+                SharedMemberInfo(name: "陳小明", amountPerCycle: 73, isOrganizer: true),
+                SharedMemberInfo(name: "林小美", amountPerCycle: 73, isOrganizer: false),
+            ],
+            recipientName: "林小美"
+        )
+        let url = try SubscriptionShareEncoder.encode(payload)
+        let decoded = try SubscriptionShareDecoder.decode(url)
+        #expect(decoded.suggestedShare == 80)
+        #expect(decoded.members?.first(where: { $0.name == "林小美" })?.amountPerCycle == 73)
     }
 }

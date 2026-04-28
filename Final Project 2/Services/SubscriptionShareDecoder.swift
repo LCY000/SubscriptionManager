@@ -31,7 +31,10 @@ struct SubscriptionShareDecoder {
             withPad: "=",
             startingAt: 0
         )
-        guard let data = Data(base64Encoded: padded) else {
+        guard let rawData = Data(base64Encoded: padded) else {
+            throw SubscriptionShareError.decodingFailed
+        }
+        guard let data = try? (rawData as NSData).decompressed(using: .zlib) as Data else {
             throw SubscriptionShareError.decodingFailed
         }
 

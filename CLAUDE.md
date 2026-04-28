@@ -119,6 +119,17 @@ Tests/                               # Unit tests
   - 新建 `PaymentRecordEditView`（日期、金額、備註；新增/編輯雙用途）
   - 統計改用 `sub.paymentRecords`：myShare 取 `record.amount`，planTotal 取 `record.planAmount`
   - 「自訂天數」→「固定天數間隔」；週期 Section 加 footer 說明文字
+- [x] **Phase G — 分享 URL 修復（v1.4）**（✅ 2026-04-28 完成，見 `PLAN.md` § Phase G）
+  - `SharedSubscriptionPayload.currentVersion` 2 → 3
+  - Encoder：JSON → zlib 壓縮 → base64，URL 從 800+ 降至 ~400 字元，iOS 可完整識別連結
+  - Decoder：直接解壓縮，無版本分支
+  - Bug fix：`suggestedShare` 傳入值永遠優先於 DB 的 `c.amountPerMonth`（Encoder + ImportView.init 兩端）
+  - `SubscriptionShareCodecTests`：修版本號 bug + 新增 `suggestedSharePreservedWithMembers` 測試（共 6 筆）
+- [ ] **Phase H — 接收方成員列表 UX 改善（v1.5）**（🔲 待實作，見 `PLAN.md` § Phase H）
+  - `Subscription` 加 `recipientName: String?`（SwiftData lightweight migration）
+  - 成員列表標示「（我）」；「我」那列顯示 `myShareOverride` 而非快照值
+  - 成員 context menu：「建立新朋友」/ 「連結現有朋友」（FriendPickerSheet）
+  - 「編輯」按鈕開啟 `ImportedMembersEditSheet`，可修改各成員金額（名稱唯讀）
 
 動工前務必先讀 `PLAN.md` 該 Phase 的勾選項以對齊範圍。
 

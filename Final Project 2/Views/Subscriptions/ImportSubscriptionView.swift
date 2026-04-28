@@ -34,13 +34,13 @@ struct ImportSubscriptionView: View {
     init(payload: SharedSubscriptionPayload, onDismiss: @escaping () -> Void) {
         self.payload = payload
         self.onDismiss = onDismiss
-        // Priority: recipientName matched member → suggestedShare → full amount
+        // Priority: suggestedShare（sender 明確設定值）→ recipientName matched member → full amount
         let initialShare: Decimal
-        if let recipientName = payload.recipientName,
-           let matched = payload.members?.first(where: { $0.name == recipientName }) {
-            initialShare = matched.amountPerCycle
-        } else if let suggested = payload.suggestedShare {
+        if let suggested = payload.suggestedShare {
             initialShare = suggested
+        } else if let recipientName = payload.recipientName,
+                  let matched = payload.members?.first(where: { $0.name == recipientName }) {
+            initialShare = matched.amountPerCycle
         } else {
             initialShare = payload.amount
         }

@@ -45,6 +45,7 @@
 - 主辦人分享時自動帶入完整成員名單與各自分攤金額
 - 可指定收件人，對方打開連結後 App 自動高亮並預填對應金額
 - 三行純文字格式：邀請語 / 說明 / 連結，在 LINE 完整顯示
+- 連結酬載採 zlib 壓縮後 base64，URL 長度約 400 字元，iOS 可完整識別為可點擊連結
 
 ### 付款紀錄系統
 - 訂閱建立時自動回填歷史付款紀錄；App 切回前景時自動補齊離線期間
@@ -98,6 +99,8 @@
 | v1.1 | 分帳角色系統 & 深層連結分享 | ✅ | 2026-04-27 |
 | v1.2 | 暱稱 + 分享成員列表 + UX 修正 | ✅ | 2026-04-27 |
 | v1.3 | PaymentRecord 驅動統計 & 付款紀錄 UI | ✅ | 2026-04-27 |
+| v1.4 | 分享 URL zlib 壓縮 & 建議金額 bug 修復 | ✅ | 2026-04-28 |
+| v1.5 | 接收方成員列表 UX 改善 | 🔲 待實作 | — |
 
 ---
 
@@ -134,5 +137,5 @@ Tests/
 ├── BillingCycleCalculatorTests.swift       # 13 筆（月底、閏年、自訂天數）
 ├── ContributionSettlerTests.swift          # 12 筆（預付抵扣邏輯）
 ├── SubscriptionShareCalculatorTests.swift  # 9 筆（我的份額各角色情境）
-└── SubscriptionShareCodecTests.swift       # 5 筆（深層連結 encode/decode）
+└── SubscriptionShareCodecTests.swift       # 6 筆（深層連結 encode/decode，含壓縮與 suggestedShare 保留驗證）
 ```

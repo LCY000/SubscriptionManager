@@ -340,6 +340,8 @@ Final Project 2/
 | 擴充 — 三大痛點修正（v1.1） | ✅ 完成 | 2026-04-26 | 我的份額模型、朋友主辦流程、深層連結分享，BUILD SUCCEEDED |
 | Phase E — 暱稱 + 分享成員列表（v1.2） | ✅ 完成 | 2026-04-27 | 五項 UX 修正 + 分享成員列表 + 三行訊息格式，BUILD SUCCEEDED |
 | Phase F — PaymentRecord 驅動統計（v1.3） | ✅ 完成 | 2026-04-27 | 付款紀錄自動生成、可編輯歷史、統計改用真實紀錄，BUILD SUCCEEDED |
+| Phase G — 分享 URL 修復（v1.4） | ✅ 完成 | 2026-04-28 | zlib 壓縮縮短 URL、suggestedShare 優先順序 bug、Codec 測試 6 筆，BUILD SUCCEEDED |
+| Phase H — 接收方成員列表 UX 改善（v1.5） | 🔲 待實作 | — | recipientName 欄位、（我）標示、加入好友、成員金額可編輯 |
 
 ### 擴充修正 — 2026-04-26
 
@@ -745,3 +747,158 @@ private func setStatus(_ newStatus: SubscriptionStatus) {
 | 8 | PaymentHistorySection 點「＋」手動新增 | 統計即時更新 |
 | 9 | 統計切換 myShare / planTotal | myShare 用 record.amount；planTotal 用 record.planAmount |
 | 10 | 設「固定天數間隔」30 天 | footer 顯示「固定天數間隔扣款（如：Claude、ChatGPT 每30天）」 |
+
+## Phase G：分享 URL 修復（v1.4）
+
+### 問題
+
+1. **URL 太長**：JSON → base64 不壓縮，3 成員 YouTube Premium 約 800+ 字元。iOS 的 NSDataDetector 只把前半段識別為可點擊連結，後半段變純文字。
+2. **手動修改建議金額被覆蓋（bug）**：`SubscriptionShareEncoder.encode(_ subscription:)` 在有指定 `recipientName` 時一律用 DB 的 `c.amountPerMonth`，完全忽略傳入的 `suggestedShare` 參數。接收端 `ImportSubscriptionView.init` 也有同樣問題（recipientName member 優先於 suggestedShare）。
+
+### 修復內容（✅ 2026-04-28 完成）
+
+#### URL 壓縮
+
+- `SharedSubscriptionPayload.currentVersion` 2 → 3（記錄格式改變）
+- `SubscriptionShareEncoder.encode(_ payload:)`：JSON 序列化後用 `NSData.compressed(using: .zlib)` 壓縮，再 base64
+- `SubscriptionShareDecoder.decode(_ url:)`：base64 解碼後直接 `NSData.decompressed(using: .zlib)` 解壓縮
+- 效果：URL 長度約 800+ → ~400 字元，NSDataDetector 可完整識別
+
+#### 手動金額 bug 修復
+
+- `SubscriptionShareEncoder`：`suggestedShare` 傳入值永遠優先，僅當 `suggestedShare == nil` 時才從 DB 取 `c.amountPerMonth`
+- `ImportSubscriptionView.init`：initialShare 優先順序改為 `suggestedShare` → `recipientName` matched member → `payload.amount`
+
+#### 測試
+
+- `SubscriptionShareCodecTests`：修現存 bug（urlStructure 版本號 `"1"` → `"3"`）；新增 `suggestedSharePreservedWithMembers` 驗證 round-trip
+
+### 修改檔案
+
+| 檔案 | 改動 |
+|---|---|
+| `Models/SharedSubscriptionPayload.swift` | currentVersion 2 → 3 |
+| `Services/SubscriptionShareEncoder.swift` | 壓縮 + shareAmount 優先順序修正 |
+| `Services/SubscriptionShareDecoder.swift` | 解壓縮 |
+| `Views/Subscriptions/ImportSubscriptionView.swift` | init 優先順序修正 |
+| `Tests/SubscriptionShareCodecTests.swift` | 修 bug + 新增測試 |
+
+## Phase H：接收方成員列表 UX 改善（v1.5，待實作）
+
+### 問題
+
+1. **無法知道哪個成員是自己**：接收方匯入後，成員列表沒有標示「（我）」
+2. **無法將成員加到好友列表**：接收方看到方案成員，但分帳 Tab 是空的，無法一鍵新增。加入後應可在分帳 Tab 自行編輯付款資訊、備註
+3. **成員金額靜態 + 我的金額不同步**：
+   - importedMembersJSON 匯入後就固定，無法後續修改
+   - 在 SubscriptionEditView 改了 myShareOverride，成員列表仍顯示舊值
+
+### 根因
+
+- `recipientName`（主辦人分配給我的名字）沒有存到 Subscription，導致無法識別「我是誰」
+- importedMembersJSON 完全唯讀，無編輯 UI
+
+### 修改檔案（3 個，不新增檔案）
+
+| 檔案 | 改動 |
+|---|---|
+| `Models/Subscription.swift` | 加 `var recipientName: String?`（SwiftData lightweight migration） |
+| `Views/Subscriptions/ImportSubscriptionView.swift` | `importNow()` 傳入 `recipientName: roleIsMember ? payload.recipientName : nil` |
+| `Views/Subscriptions/SubscriptionDetailView.swift` | 多處改動（見下） |
+
+### SubscriptionDetailView 改動詳細
+
+#### 新增 state 與 query
+
+```swift
+@Query private var allFriends: [Friend]
+@State private var showingMembersEditSheet = false
+@State private var addFriendToastMessage: String? = nil
+@State private var memberToLink: String? = nil
+```
+
+#### body 新增 sheet + toast
+
+```swift
+.sheet(isPresented: $showingMembersEditSheet) {
+    ImportedMembersEditSheet(subscription: subscription)
+}
+.sheet(isPresented: Binding(get: { memberToLink != nil }, set: { if !$0 { memberToLink = nil } })) {
+    if let name = memberToLink {
+        FriendPickerSheet(friends: allFriends) { selectedFriend in
+            renameMember(from: name, to: selectedFriend.name)
+        }
+    }
+}
+.overlay(alignment: .bottom) {
+    if let msg = addFriendToastMessage {
+        Text(msg)
+            .font(.subheadline).foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(.black.opacity(0.75)).clipShape(.capsule)
+            .padding(.bottom, 24)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .onAppear {
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation { addFriendToastMessage = nil }
+                }
+            }
+    }
+}
+.animation(.easeInOut(duration: 0.25), value: addFriendToastMessage)
+```
+
+#### sharedPlanCard 非主辦人區塊改動
+
+- Header 加「編輯」按鈕 → `showingMembersEditSheet = true`
+- ForEach 成員列：
+  - `let isMe = member.name == subscription.recipientName`
+  - `let displayAmount = isMe ? (subscription.myShareOverride ?? member.amountPerCycle) : member.amountPerCycle`
+  - 顯示「（我）」Text（blue, caption），`isMe` 成員 name 加 semibold
+  - `.contextMenu`：非我的成員顯示「建立新朋友」＋（`allFriends` 不空時）「連結現有朋友」
+
+#### 兩個 helper 方法
+
+```swift
+private func addToFriendList(name: String) {
+    let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.name == name })
+    let exists = (try? modelContext.fetch(descriptor))?.isEmpty == false
+    if !exists {
+        modelContext.insert(Friend(name: name))
+        withAnimation { addFriendToastMessage = "已將「\(name)」加入好友列表" }
+    } else {
+        withAnimation { addFriendToastMessage = "「\(name)」已在好友列表中" }
+    }
+}
+
+private func renameMember(from oldName: String, to newName: String) {
+    guard let json = subscription.importedMembersJSON,
+          let data = json.data(using: .utf8),
+          var members = try? JSONDecoder().decode([SharedMemberInfo].self, from: data)
+    else { return }
+    if let i = members.firstIndex(where: { $0.name == oldName }) {
+        members[i] = SharedMemberInfo(name: newName,
+                                      amountPerCycle: members[i].amountPerCycle,
+                                      isOrganizer: members[i].isOrganizer)
+    }
+    if let updated = try? JSONEncoder().encode(members),
+       let str = String(data: updated, encoding: .utf8) {
+        subscription.importedMembersJSON = str
+    }
+    memberToLink = nil
+    withAnimation { addFriendToastMessage = "已連結「\(newName)」" }
+}
+```
+
+#### 兩個 private struct（檔案末尾）
+
+**`FriendPickerSheet`**：接收 `[Friend]` 列表和 `onSelect` closure，讓使用者選擇要連結的現有朋友。
+
+**`ImportedMembersEditSheet`**：在 `init` 時解碼 importedMembersJSON，建立 `[String: String]` 的 amountStrings 字典（「我」那列從 myShareOverride 取初始值）；`save()` 時同步 myShareOverride 與 importedMembersJSON。名稱唯讀，只開放金額修改。
+
+### 設計決策
+
+- **名稱唯讀（EditSheet）**：編輯 sheet 只開放金額，名稱靠 context menu →「連結現有朋友」更新
+- **「連結現有朋友」效果**：把 importedMembersJSON 裡那個成員的名字改成選定 Friend 的名字，讓識別符一致
+- **加入好友後可自行編輯**：建立的 Friend 物件出現在分帳 Tab，可在那裡正常編輯付款資訊、備註
